@@ -27,6 +27,7 @@ function wsSend(msg)
 
 function wsAddListener(name, callback)
 {
+
 	wsSocket.onmessage = function(e)
 	{
 		console.log("wsSend response: " + e.data);
