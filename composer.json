@@ -1,0 +1,7 @@
+{
+	"require": {
+		"components/jquery": "*",
+		"components/bootstrap": "*",
+		"components/angular.js": "*"
+	}
+}
