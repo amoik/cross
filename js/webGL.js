@@ -5,221 +5,51 @@ var frames = 0;
 var time = undefined;
 var canvWallW = 0;
 var canvWallH = 0;
-var keyState = {};
 const CANV_ID = 'canv';
 const WEBGL_X = 16;
-const WEBGL_Y = 9;
+const WEBGL_Y = 6;
 const GL_RESOLUTION = 800;
 var fragmentShader;
 var vertexShader;
 var fragmentShaderTex;
 var vertexShaderTex;
 
-function canvDraw(lvl)
+function canvDraw(game)
 {
 	frames = 0;
 	time = undefined;
 	canvWallW = 0;
 	canvWallH = 0;
 
-	keyState = {};
+
 
 	$("#"+CANV_ID).show();
 	var can = document.getElementById(CANV_ID);
 
-	var global = {md:false, x: 0,player:{x:0,y:0,s:1, a:0},ang:angular.element(document.getElementById('levelBuilder')).controller(),npcGrabbed:false};
+	var global = {md:false, x: 0,player:{x:0,y:0,s:1, a:0},ang:angular.element(document.getElementById('mpGame')).controller(),npcGrabbed:false,keyState:{}};
 	global.ang.setRunning(true);
 
-	addListeners(can, global, lvl);
+	addListeners(can, global, game);
 
-	if(!initGL(can, global)
-		|| !initShadersTex())
+	if(!initGL(can, global))
 	{
-		alert("Initialisierung fehlgeschlagen :(")
+		alrt("Dieser Browser beherrscht leider kein WebGL :(");
 		return false;
 	}
 
+	initShadersTex();
+
 	canvResize();
 
-	modal.showPleaseWait();
 
-	recursiveTextureLoad(can, lvl, global, [
-		{n:"ressources/hintergrund_x0.bmp"},
-		{n:"ressources/hintergrund_x1.bmp"},
-		{n:"ressources/hintergrund_x2.bmp"},
-		{n:"ressources/hintergrund_01.bmp"},
-		{n:"ressources/hintergrund_02.bmp"},
-		{n:"ressources/hintergrund_10.bmp"},
-		{n:"ressources/hintergrund_12.bmp"},
-		{n:"ressources/hintergrund_20.bmp"},
-		{n:"ressources/hintergrund_21.bmp"},
-		{n:"ressources/Akopf.bmp"},
-		{n:"ressources/gegner.bmp"},
-		{n:"ressources/goodie.bmp"},]
+	recursiveTextureLoad(can, game, global, [
+		{n:"ressources/figur.png"},]
 		,0);
+	return true;
 }
 
 
-
-//listener
-function mouseClickR(e, global)
-{
-	e.preventDefault();
-	if(global.mode == 1)
-		global.mode = 0;
-	else
-		global.mode = 1;
-}
-function mouseOut(e, global, lvl)
-{
-	//mouse out of canvas
-	global.md = false;
-}
-
-function somethingMove(e, global, lvl)
-{
-	e.preventDefault();
-	var npc = global.ang.getNpc();
-
-	if(global.md)
-	{
-		global.x += getCanvasCoord(e).x-global.md.x;
-		global.md.x = getCanvasCoord(e).x;
-
-		global.md.count ++;
-	}
-	if(npc.move || npc.isNew)
-	{
-		npc.x = getCanvasCoord(e).x-global.x;
-		npc.y = getCanvasCoord(e).y;
-	}
-	if(npc)
-	{
-		global.ang.setNpc(npc);
-	}
-}
-
-function somethingUp(e, global, lvl)
-{
-	e.preventDefault();
-	var npc = global.ang.getNpc();
-	var coords = getCanvasCoord(e);
-	if(global.md.count < 2)	// interpreted as a klick!
-	{
-		//a new one
-		if(npc.isNew)
-		{
-			npc.x = coords.x - global.x;
-			npc.y = coords.y;
-			npcWallCollision(npc, global);
-			if(!testAllCollisions(npc, global,lvl, npc, true))
-			{
-				switch(npc.type)
-				{
-					case "enemy":
-					lvl.enemies.push({x:npc.x,y:npc.y,a:npc.a,s:npc.s,v:npc.v});
-					break;
-
-					case "goodie":
-					lvl.goodies.push({x:npc.x,y:npc.y,a:npc.a,s:npc.s});
-					break;
-
-					default:
-					break;
-				}
-			}
-			else
-				alert("Kollision!");
-		}
-	}
-
-	if(npc)
-		npc.move = false;
-
-	global.md = false;
-
-	if(global.ang.getRunning())
-		global.ang.saveTmp(lvl);
-}
-
-function somethingDown(e, global, lvl)
-{
-	e.preventDefault();
-
-	if(e.which != 1 && e.which != 0)	// 1 = rightclick / 0 = touchfinger
-		return;
-
-	var npc = global.ang.getNpc();
-	var coords = getCanvasCoord(e);
-	var coll = false;
-
-	//check collision
-	for(var i = 0; i < lvl.enemies.length; i++)
-	{
-		if(coll_circle_circle(coords.x-global.x, coords.y, 0, lvl.enemies[i].x, lvl.enemies[i].y, lvl.enemies[i].s))
-		{
-			coll = lvl.enemies[i];
-			coll.type = "enemy";
-		}
-	}
-	for(var i = 0; i < lvl.goodies.length; i++)
-	{
-		if(coll_circle_circle(coords.x-global.x, coords.y, 0, lvl.goodies[i].x, lvl.goodies[i].y, lvl.goodies[i].s))
-		{
-			coll = lvl.goodies[i];
-			coll.type = "goodie";
-		}
-	}
-	if(coll)
-	{
-		unchooseAllNpcs(lvl);
-		coll.choosen = true;
-		coll.move = true;
-		global.ang.setNpc(coll);
-	}
-	else
-	{
-		if(!npc.isNew)
-		{
-			global.ang.setNpc(false);
-			unchooseAllNpcs(lvl);
-		}
-		if(!global.md)
-		{
-			global.md = getCanvasCoord(e);
-			global.md.count = 0;		//husch pfusch!
-		}
-	}
-}
-function npcRotation(e, global)
-{
-	var npc = global.ang.getNpc();
-	e.preventDefault();
-	var delta = Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)));
-
-	if(!global.mode)
-	{
-		npc.a += delta * 10;
-
-		if(npc.a > 360)
-			npc.a -= 360;
-		if(npc.a < 0)
-			npc.a += 360;
-	}
-	else
-	{
-		npc.s = parseFloat(npc.s);
-		npc.s += delta * 0.05;
-		if(npc.s < 0.5)
-			npc.s = 0.5;
-		else if(npc.s > 3)
-			npc.s = 3;
-	}
-
-	global.ang.setNpc(npc);
-}
-
-function calcFrames(global, lvl)
+function calcFrames(global, game)
 {
 	if(time === undefined)
 		time = new Date();
@@ -238,10 +68,10 @@ function calcFrames(global, lvl)
 
 
 
-function viewWallCollision(lvl, global)
+function viewWallCollision(game, global)
 {
 	//viewmatrix
-	var maxL = WEBGL_X * ((lvl.backgrounds.length-1)*2);
+	var maxL = WEBGL_X * ((game.backgrounds.length-1)*2);
 	var minL = 0;
 
 	if(global.x > minL)
@@ -267,32 +97,51 @@ function npcWallCollision(npc, global)
 		npc.x = WEBGL_X - npc.s - global.x;
 }
 
-function canvEndless(can ,lvl, global, tex)
+function canvEndless(can ,game, global, tex)
 {
-	calcFrames(global, lvl);
-	viewWallCollision(lvl, global);
-	npcWallCollision(global.ang.getNpc(), global);
+	calcFrames(global, game);
 
-	drawScene(lvl, global, tex);
-	global.ang.setLevelDetails(lvl);
+	calcInput(global, game);
+	drawScene(game, global, tex);
 
 	requestAnimFrame(function()
 	{
 		if(global.ang.getRunning())
-			canvEndless(can ,lvl, global, tex);
+		{
+			global.ang.setGame(game);
+			canvEndless(can ,game, global, tex);
+		}
 		else
 			cleanUp()
 	});
 }
 
-
+function calcInput(global, game)
+{
+	if(global.keyState[68])
+	{
+		game.players[myId].x += 0.1;
+	}
+	if(global.keyState[65])
+	{
+		game.players[myId].x -= 0.1;
+	}
+	if(global.keyState[87])
+	{
+		game.players[myId].y += 0.1;
+	}
+	if(global.keyState[83])
+	{
+		game.players[myId].y -= 0.1;
+	}
+}
 
 function canvResize()
 {
 	if(gl)
 	{
 		var jCan = $("#"+CANV_ID);
-		jCan.height(jCan.width() / 16 * 9);
+		jCan.height(jCan.width() / WEBGL_X * WEBGL_Y);
 	}
 
 	gl.clearColor(0.9, 0.9, 0.9, 1.0);
@@ -316,7 +165,6 @@ function initGL(can, global)
 	}
 	catch (e)
 	{
-		alert("Dieser Browser beherrscht leider kein WebGL :(");
 		return false;
 	}
 	return true;
@@ -377,56 +225,32 @@ var mvMatrix = mat4.create();
 var pMatrix = mat4.create();
 
 
-function drawScene(lvl, global, tex)
+function drawScene(game, global, tex)
 {
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	if(lvl.backgrounds.length > 0)
+	for(var i in global.ang.getGame().players)
 	{
-		drawBackgrounds(lvl.backgrounds, global, tex);
-
-
-		//enemies
-		for(var i = 0; i < lvl.enemies.length; i++)
-		{
-			glDrawCircleTex(global.x+lvl.enemies[i].x, lvl.enemies[i].y, lvl.enemies[i].s, lvl.enemies[i].a, tex[10].t);
-		}
-		//goodies
-		for(var i = 0; i < lvl.goodies.length; i++)
-		{
-			glDrawCircleTex(global.x+lvl.goodies[i].x, lvl.goodies[i].y, lvl.goodies[i].s, lvl.goodies[i].a, tex[11].t);
-		}
-		//player
-		glDrawCircleTex(global.x+global.player.x,global.player.y,global.player.s,global.player.a, tex[9].t);
-
-		//choosen npc
-		if(global.ang.getNpc())
-		{
-			var npc = global.ang.getNpc();
-			if(npc.type == "goodie" && npc.isNew)
+		if(global.ang.getGame().players[i])
+			if(global.ang.getGame().players[i].id != myId)
 			{
-				glDrawCircleTex(global.x+npc.x, npc.y, npc.s, npc.a, tex[11].t);
+				glDrawCircleTex(global.ang.getGame().players[i].x, global.ang.getGame().players[i].y, global.ang.getGame().players[i].s, global.ang.getGame().players[i].a, tex[0].t);
 			}
-			if(npc.type == "enemy" && npc.isNew)
-			{
-				glDrawCircleTex(global.x+npc.x, npc.y, npc.s, npc.a, tex[10].t);
-			}
-		}
 	}
 }
 
 
 
-function testAllCollisions(npc, global,lvl, npc, withplayer)
+function testAllCollisions(npc, global,game, npc, withplayer)
 {
-	for(var i = 0; i < lvl.enemies.length; i++)
+	for(var i = 0; i < game.enemies.length; i++)
 	{
-		if(coll_circle_circle(npc.x, npc.y, npc.s, lvl.enemies[i].x,  lvl.enemies[i].y,  lvl.enemies[i].s))
+		if(coll_circle_circle(npc.x, npc.y, npc.s, game.enemies[i].x,  game.enemies[i].y,  game.enemies[i].s))
 			return true;
 	}
-	for(var i = 0; i < lvl.goodies.length; i++)
+	for(var i = 0; i < game.goodies.length; i++)
 	{
-		if(coll_circle_circle(npc.x, npc.y, npc.s, lvl.goodies[i].x,  lvl.goodies[i].y,  lvl.goodies[i].s))
+		if(coll_circle_circle(npc.x, npc.y, npc.s, game.goodies[i].x,  game.goodies[i].y,  game.goodies[i].s))
 			return true;
 	}
 	if(withplayer)
@@ -434,38 +258,23 @@ function testAllCollisions(npc, global,lvl, npc, withplayer)
 			return true;
 }
 
-function unchooseAllNpcs(lvl)
+function unchooseAllNpcs(game)
 {
-	for(var i = 0; i < lvl.enemies.length; i++)
+	for(var i = 0; i < game.enemies.length; i++)
 	{
-		lvl.enemies[i].choosen = false;
+		game.enemies[i].choosen = false;
 	}
-	for(var i = 0; i < lvl.goodies.length; i++)
+	for(var i = 0; i < game.goodies.length; i++)
 	{
-		lvl.goodies[i].choosen = false;
+		game.goodies[i].choosen = false;
 	}
 }
 
-function addListeners(can, global, lvl)
+function addListeners(can, global, game)
 {
-	window.addEventListener('keydown',function(e){console.log(e.keyCode);keyState[e.keyCode || e.which] = true;},true);
-	window.addEventListener('keyup',function(e){keyState[e.keyCode || e.which] = false;},true);
+	window.addEventListener('keydown',function(e){global.keyState[e.keyCode || e.which] = true;},true);
+	window.addEventListener('keyup',function(e){global.keyState[e.keyCode || e.which] = false;},true);
 
-	can.addEventListener("mousewheel", function(e){ npcRotation(e, global); }.bind(this));	// IE9, Chrome, Safari, Opera
-	can.addEventListener("DOMMouseScroll", function(e){ npcRotation(e, global); }.bind(this));	// Firefox
-	can.addEventListener("onmousewheel", function(e){ npcRotation(e, global); }.bind(this));// IE 6/7/8
-
-	can.addEventListener("mousedown", function(e){ somethingDown(e, global, lvl); }.bind(this));
-	can.addEventListener("touchstart", function(e){ somethingDown(e, global, lvl); }.bind(this));
-
-	can.addEventListener("mouseup", function(e){ somethingUp(e, global, lvl); }.bind(this));
-	can.addEventListener("touchend", function(e){ somethingUp(e, global, lvl); }.bind(this));
-
-	can.addEventListener("mousemove", function(e){ somethingMove(e, global, lvl); }.bind(this));
-	can.addEventListener("touchmove", function(e){ somethingMove(e, global, lvl); }.bind(this));
-
-	can.addEventListener("mouseout", function(e){ mouseOut(e, global, lvl); }.bind(this));
-	can.addEventListener("touchout", function(e){ mouseOut(e, global, lvl); }.bind(this));
 
 	can.addEventListener("contextmenu", function(e){ mouseClickR(e, global); }.bind(this));
 }
@@ -494,49 +303,7 @@ function getCanvasCoord(e)
 	return {x: mx , y: -my};
 }
 
-function drawBackgrounds(bgs, global, tex)
-{
 
-	for(var i = 0; i < bgs.length; i++)
-	{
-		var t = null
-		switch(bgs[i])
-		{
-			case "x0":
-				t = tex[0].t;
-			break;
-			case "x1":
-				t = tex[1].t;
-			break;
-			case "x2":
-				t = tex[2].t;
-			break;
-			case "01":
-				t = tex[3].t;
-			break;
-			case "02":
-				t = tex[4].t;
-			break;
-			case "10":
-				t = tex[5].t;
-			break;
-			case "12":
-				t = tex[6].t;
-			break;
-			case "20":
-				t = tex[7].t;
-			break;
-			case "21":
-				t = tex[8].t;
-			break;
-
-			default:
-				alert("unsupported background!");
-			break;
-		}
-			glDrawRectangleTex(global.x + (WEBGL_X * i*2),0,WEBGL_X,WEBGL_Y,t);
-	}
-}
 
 function coll_circle_circle(x1, y1, r1, x2, y2, r2)
 {
@@ -662,7 +429,6 @@ function initShadersTex()
 	shaderProgramTex.pMatrixUniform = gl.getUniformLocation(shaderProgramTex, "uPMatrix");
 	shaderProgramTex.mvMatrixUniform = gl.getUniformLocation(shaderProgramTex, "uMVMatrix");
 	shaderProgramTex.samplerUniform = gl.getUniformLocation(shaderProgramTex, "uSampler");
-	return true;
 }
 
 function handleLoadedTexture(texture)
@@ -675,7 +441,7 @@ function handleLoadedTexture(texture)
 	gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
-function recursiveTextureLoad(can ,lvl, global, tex, num)
+function recursiveTextureLoad(can ,game, global, tex, num)
 {
 	tex[num].t = gl.createTexture();
 	tex[num].t.image = new Image();
@@ -686,11 +452,11 @@ function recursiveTextureLoad(can ,lvl, global, tex, num)
 		handleLoadedTexture(tex[num].t);
 
 		if(num < tex.length-1)
-			recursiveTextureLoad(can ,lvl, global, tex, num+1);
+			recursiveTextureLoad(can ,game, global, tex, num+1);
 		else
 		{
 			modal.hidePleaseWait();
-			canvEndless(can ,lvl, global, tex);
+			canvEndless(can ,game, global, tex);
 		}
 	}
 }

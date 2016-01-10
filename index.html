@@ -35,7 +35,7 @@
 
 </head>
 <body onresize="canvResize()">
-	<div id="mpGame" class="container" ng-controller="mpGameCtr as mpg" ng-app="mpGame">
+	<div id="mpGame" class="container" ng-controller="mpGameCtr as mpg" ng-app="mpGame" style="width:100%">
 
 		<nav class="navbar navbar-default navbar-fixed-top" role="navigation">
 			<div class="navbar-header">
@@ -60,7 +60,7 @@
 		</nav>
 
 
-		<div class="wrapper" style="margin-top:70px;">
+		<div class="wrapper" style="margin-top:70px;width:100%">
 
 			<!-- Welcome Page -->
 			<div ng-if="mpg.interface == 'welcome'">
@@ -72,10 +72,11 @@
 
 			<!-- Lobby -->
 			<div ng-if="mpg.interface == 'lobby'">
-				<div class="col-sm-6 col-md-6 col-lg-6">
+				<div class="col-sm-9 col-md-8 col-lg-8">
+
+
 					<button ng-click="mpg.logout()" type="button" class="btn btn-warning" aria-label="Left Align">Logout</button>
-				  <button ng-click="mpg.readLobby()" type="button" class="btn btn-success" aria-label="Left Align"><span class="glyphicon glyphicon-refresh"></span></button>
-					<table ng-if="mpg.games.length > 0" style="margin:10px;width:100%;">
+					<table ng-if="!mpg.getGamesEmpty()" style="margin:10px;width:100%;">
 						<th>Name</th>
 						<th>Spieler</th>
 						<th>Maximum</th>
@@ -85,16 +86,16 @@
 							<td>{{g.name}}</td>
 							<td>{{g.count}}</td>
 							<td>{{g.maxCount}}</td>
-							<td><button ng-click="mpg.joinGame(g)" title="Öffnen" type="button" class="btn btn-success" aria-label="Left Align"><span class="glyphicon glyphicon-check"></span></button></td>
+							<td><button ng-click="mpg.joinGame(g.name)" title="Öffnen" type="button" class="btn btn-success" aria-label="Left Align"><span class="glyphicon glyphicon-check"></span></button></td>
 						</tr>
 					</table>
-					<div ng-if="mpg.games.length == 0">
+					<div ng-if="mpg.getGamesEmpty()" >
 						Momentan gibt es leider Keine Spiele. Sei der Erste, der eines erstellt!
 					</div>
 				</div>
 
 						<!-- Neues Spiel -->
-				<div class="col-sm-6 col-md-6 col-lg-6">
+				<div class="col-sm-6 col-md-4 col-lg-4">
 					<table style="margin:10px;width:100%;">
 						<th><span class="badge">Neues Anlegen</span></th>
 						<th></th>
@@ -111,7 +112,7 @@
 							<td style="width:3em;text-align:right;">{{mpg.newGame.maxCount}}</td>
 						</tr>
 						<tr>
-							<td>Start</td>
+							<td>Anlegen</td>
 							<td><button class="btn btn-success" ng-click="mpg.createGame()"><span class="glyphicon glyphicon-check"></span></button></td>
 							<td></td>
 						</tr>
@@ -121,49 +122,25 @@
 
 			<!-- Game -->
 			<div ng-if="mpg.interface == 'inGame'">
-				<div class="col-sm-12 col-md-10 col-lg-10">
-					<span style="margin:5px;" class="badge">{{mpg.game.name}}</span>
-					<button class="btn btn-warning" ng-click="mpg.leaveGame()"><span class="glyphicon glyphicon-remove"></span></button>
+				<div class="col-sm-12 col-md-12 col-lg-12">
 
+					<div style="margin:5px;width:100%" class="badge">
+
+						<button class="btn btn-warning" ng-click="mpg.leaveGame()" style="float:right"><span class="glyphicon glyphicon-remove"></span></button>
+
+						<div style="clear:both;font-size:2em;">{{mpg.game.name}}</div>
 
 						<div>
 							<center>
-								<canvas id="canv" style="width:96%;"></canvas>
+								<canvas id="canv" style="width:100%;"></canvas>
 							</center>
-
 						</div>
+
+					</div>
+
+
 						<div><span id="canvFrames" style="color:orange;display:hidden;"></span></div>
-					<button ng-click="mpg.setInterface('overview')" type="button" class="btn btn-default" aria-label="Left Align">Zurück</button>
-					<button ng-if="mpg.loadedLevel.details.backgrounds.length > 0" ng-click="mpg.saveLevel(mpg.loadedLevel)" type="button" class="btn btn-default" aria-label="Left Align">Speichern</button>
-				</div>
-
-
-
-					<div class="col-sm-6 col-md-2 col-lg-2" style="margin-top:30px;">
-						<div class="dropdown">
-							<button class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
-								NPC
-								<span class="caret"></span>
-							</button>
-							<ul class="dropdown-menu" aria-labelledby="dropdownMenu1">
-								<li><a href="" ng-repeat="npc in mpg.npcs" ng-click="mpg.addEntity(npc)">{{npc.name}}</a></li>
-							</ul>
-						</div>
 					</div>
-
-					<div class="col-sm-6 col-md-2 col-lg-2" style="margin-top:30px;">
-						<div class="dropdown">
-							<button class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
-								Hintergrund
-								<span class="caret"></span>
-							</button>
-							<ul class="dropdown-menu" aria-labelledby="dropdownMenu1">
-								<li><a href="#" ng-repeat="bg in mpg.backgrounds" ng-click="mpg.addBackground(bg)">{{bg.name}}</a></li>
-							</ul>
-						</div>
-					</div>
-
-
 			</div>
 		</div>
 	</div>

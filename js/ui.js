@@ -24,6 +24,7 @@ modal = modal || (function ()
 })();
 
 
+var DRAWGAME;
 
 var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scope)
 {
@@ -33,8 +34,8 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 	mpg.interface = "none";
 	mpg.running = false;
 	mpg.WS_SERVER = "ws://192.168.1.20:1234";
-	mpg.game ={name:"TODO"};
-	mpg.games=[];
+	mpg.game ={};
+	mpg.games = {};
 
 
 	angular.element(document).ready(function ()
@@ -63,8 +64,9 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 			function()
 			{
 				setConfig("lobby",mpg.WS_SERVER);
-				mpg.readLobby();
-				mpg.addAllWsListeners();
+				wsSend({request:"readLobby"});
+				mpg.addWsListener();
+				mpg.setInterface("lobby");
 			},
 			function()
 			{
@@ -73,43 +75,38 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 		);
 	}
 
-	mpg.readLobby = function()
-	{
-		modal.showPleaseWait();
-		wsSend({request:"readLobby"});
-	}
 
 	mpg.createGame = function()
 	{
 		if(mpg.checkIfGameNameExists(mpg.newGame.name))
 		{
-			alrt("Der gewählte Name ist bereits vergeben!");
+			alert("Der gewählte Name ist bereits vergeben!");
 			return;
 		}
 		if(mpg.newGame.name == "")
 		{
-			alrt("Es wurde kein Name gewählt!");
+			alert("Es wurde kein Name gewählt!");
 			return;
 		}
 
-		modal.showPleaseWait();
-		wsSend("createGame");
-		mpg.readLobby();
+		wsSend({request:"createGame",game:mpg.newGame});
+		wsSend({request:"readLobby"});
 	}
 	mpg.logout = function()
 	{
 		setConfig("lobby",false);
+		mpg.game={};
 		mpg.setInterface("welcome");
 	}
 
-	mpg.joinGame = function(game)
+	mpg.joinGame = function(name)
 	{
-		wsSend({request:"joinGame"});
+		wsSend({request:"joinGame",gameName:name,id:myId});
 	}
 
 	mpg.checkIfGameNameExists = function(n)
 	{
-		for(var i = 0; i < mpg.games.length; i++)
+		for(var i in mpg.games)
 		{
 			if(n === mpg.games[i].name)
 				return true;
@@ -117,104 +114,107 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 		return false;
 	}
 
-
-
-	mpg.addAllWsListeners = function()
+	mpg.leaveGame = function()
 	{
-		wsAddListener
-		(
-			"joinGame",
-			function(d)
-			{
-				modal.hidePleaseWait();
-				mpg.game=d;
-				alrt("joined!");
-			}
-		);
-
-		wsAddListener
-		(
-			"readLobby",
-			function(d)
-			{
-				modal.hidePleaseWait();
-				mpg.games=d;
-				mpg.setInterface("lobby");
-			}
-		);
-
-
-		wsAddListener
-		(
-			"createGame",
-			function(d)
-			{
-				modal.hidePleaseWait();
-				mpg.joinGame(d);
-			}
-		);
+		wsSend({request:"leaveGame",game:mpg.game});
+		mpg.game = {};
 	}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	mpg.addFollowName = function(lvls)
+	mpg.addWsListener = function()
 	{
-		for(var i = 0; i < lvls.length; i++)
+		wsAddListener(function(type, data)
 		{
-			if(lvls[i].follow == -1)
-				continue;
-
-			for(var j = 0; j < lvls.length; j++)
+			switch(type)
 			{
+				case "login":
+					myId = data.id;
+					break;
 
-				if(lvls[i].follow == lvls[j].id)
-				{
-					lvls[i].followName = lvls[j].name;
-				}
+
+				case "readLobby":
+					mpg.games = data;
+					$scope.$apply();
+					break;
+
+
+				case "createGame":
+					mpg.joinGame(data.name);
+					break;
+
+
+				case "joinGame":
+					mpg.game=data;
+					DRAWGAME = data;
+					mpg.setInterface("inGame");
+					if(!canvDraw(mpg.game))
+					{
+						mpg.setInterface("lobby");
+						mpg.leaveGame();
+					}
+					break;
+
+
+				case "leaveGame":
+					wsSend({request:"readLobby"});
+					mpg.setInterface("lobby");
+					break;
+
+
+				case "update":
+
+					if(!mpg.game.players)
+						mpg.game.players = data;
+					else	//if there is already data, we dont update ourself!
+					{
+						for(var i in mpg.game.players)
+						{
+							if(parseInt(i) != myId)
+							{
+								if(!data[i])
+									delete mpg.game.players[i];
+								mpg.game.players[i] = data[i];
+							}
+						}
+					}
+					break;
+
+
+				default:
+					alert("Unbekannten typ vom WS erhalten!\n" + type);
 			}
-		}
+		});
 	}
 
-	mpg.findFollowByName = function(name)
-	{
-		for(var i = 0; i < mpg.levels.length; i++)
-		{
-			if(mpg.levels[i].name == name)
-			{
-				return mpg.levels[i].id;
-			}
-		}
-		return -1;
-	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 	mpg.saveTmp = function(lvl)
 	{
@@ -223,140 +223,24 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 	}
 
 
-
-	mpg.removeLevel = function(lvl)
+	mpg.getGamesEmpty = function()
 	{
-		AJAXCall({function:"deleteLevel",id:lvl.id},function(res){mpg.rebuildLevelTable();});
-	}
-	mpg.openLevel = function(lvl)
-	{
-		mpg.setInterface("detail");
-		modal.showPleaseWait();
-		AJAXCall({function:"getLevelDetails",id:lvl.id},function(res)
+		if(JSON.stringify(mpg.games) == "{}")
 		{
-			modal.hidePleaseWait();
-			mpg.loadedLevel = lvl;
-			mpg.loadedLevel.details = res;
-
-			$scope.$apply();
-			canvDraw(mpg.loadedLevel.details);
-		});
-	}
-
-
-
-	mpg.saveLevel = function(lvl)
-	{
-		modal.showPleaseWait();
-		var fId = -1;
-
-		if(lvl.name.replace(/ /g,'') == "")
-		{
-			alert("Es muss ein Name angegeben werden!");
-			modal.hidePleaseWait();
-			return;
+			return true;
 		}
-		if(lvl.followName != undefined && lvl.followName.replace(/ /g,'') !== "")
-		{
-			var fId = mpg.findFollowByName(lvl.followName);
-		}
-
-
-		if(lvl.details)
-		{
-			AJAXCall({function:"saveLevelWithDetails",level:{id:lvl.id,version:lvl.version,name:lvl.name,follow:fId,details:lvl.details}},function(res)
-			{
-				modal.hidePleaseWait();
-				mpg.rebuildLevelTable();
-				mpg.newLevel.name = "";
-				mpg.newLevel.follow = "";
-			});
-		}
-		else
-		{
-			AJAXCall({function:"saveLevel",level:{id:lvl.id,version:lvl.version,name:lvl.name,follow:fId}},function(res)
-			{
-				modal.hidePleaseWait();
-				mpg.rebuildLevelTable();
-				mpg.newLevel.name = "";
-				mpg.newLevel.follow = "";
-			});
-
-		}
+		return false;
 	}
 
-	mpg.removeOneBackground = function()
-	{
-		if(mpg.loadedLevel.details.backgrounds.length > 0)
-			mpg.loadedLevel.details.backgrounds.pop();
-	}
-	mpg.addBackground = function(bg)
-	{
-		mpg.loadedLevel.details.backgrounds.push(bg.id);
-	}
-
-	mpg.addEntity = function(ent)
-	{
-		mpg.npc = ent;
-	}
-
-	mpg.removeChoosenEntity = function()
-	{
-		if(!mpg.npc.isNew)
-		{
-			var gd = mpg.loadedLevel.details.goodies;
-			for(var i = 0; i < gd.length; i++)
-				if(gd[i].choosen)
-					gd.splice(i, 1);
-
-
-			var en = mpg.loadedLevel.details.enemies;
-			for(var i = 0; i < en.length; i++)
-				if(en[i].choosen)
-					en.splice(i, 1);
-		}
-		mpg.npc = false;
-	}
-
-
-	mpg.addNewLevel = function()
-	{
-		mpg.newLevel.details = JSON.parse('{"backgrounds":["x0"],"enemies":[],"goodies":[]}');
-		mpg.saveLevel(mpg.newLevel);
-	}
 
 	//getter and setter for "outside"
 	mpg.setInterface = function(name)
 	{
-		if(name === "overview")
-		{
-			if(!confirm("Ungespeicherte Daten gehen verloren, wenn Sie fortfahren!"))
-				return;
-			mpg.setRunning(false);
-			//setConfig("loadedLevel", "empty");
-			mpg.npc = false;
-		}
-
 		mpg.interface = name;
 		$scope.$apply();
 	}
 
-	mpg.setNpc = function(npc)
-	{
-		mpg.npc = npc;
-		$scope.$apply();
-	}
 
-	mpg.setLevelDetails = function(lvl)
-	{
-		mpg.loadedLevel.details = lvl;
-		$scope.$apply();
-	}
-
-	mpg.getNpc = function()
-	{
-		return mpg.npc;
-	}
 	mpg.getRunning = function()
 	{
 		return mpg.running;
@@ -369,6 +253,15 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 	mpg.getInterface = function()
 	{
 		return mpg.interface;
+	}
+
+	mpg.getGame = function()
+	{
+		return mpg.game;
+	}
+	mpg.setGame = function(g)
+	{
+		mpg.game = g;
 	}
 
 });
