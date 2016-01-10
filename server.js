@@ -1,8 +1,9 @@
 var http = require('http');
 var WebSocketServer = require('websocket').server;
+var fs = require('fs');
 
 var server = http.createServer(function(request, response) {});
-var port = 1234;
+var port = 8543;
 
 
 
@@ -86,6 +87,10 @@ wsServer.on('request', function(r)
 				resA(clients, "readLobby", gameServers, "success");
 				break;
 
+			case "userPicture":
+				clients[d.id].picture = d.picture;
+				writeB64File(d.picture);
+				break;
 
 			case "joinGame":
 				console.log(d.id + " joins " + d.gameName);
@@ -94,11 +99,24 @@ wsServer.on('request', function(r)
 					res(connection, d.request, "game not found!", "fail");
 					break;
 				}
+				if(gameServers[d.gameName].count >= gameServers[d.gameName].maxCount)
+				{
+					res(connection, d.request, "Dieses Spiel ist voll!", "fail");
+					break;
+				}
 				gameServers[d.gameName].count ++;
-				gameServers[d.gameName].players[d.id] = {x:0,y:0,s:1,a:0};
+				gameServers[d.gameName].players[d.id] = {x:0,y:0,xs:0,ys:0,s:1,a:0};
 				clients[d.id].game = gameServers[d.gameName];
 				res(connection, "joinGame",gameServers[d.gameName], "success");
+
+				var toUpdate = getAllClientsFromGame(d.gameName);
+				resA(toUpdate, "userPicture", {picture:clients[d.id].picture,id:d.id}, "success");
+
+				for(var i in toUpdate)
+					res(connection, "userPicture",{picture:toUpdate[i].picture,id:i}, "success");
+
 				resA(clients, "readLobby", gameServers, "success");
+
 				break;
 
 
@@ -127,29 +145,19 @@ wsServer.on('request', function(r)
 
 
 			case "update":
-				if(d.gameName)
+				if(!d.gameName || !gameServers[d.gameName] || !gameServers[d.gameName].players)
+					break;
+
+				if(gameServers[d.gameName].players[d.id])
+					gameServers[d.gameName].players[d.id] = d.player;
+
+				if(wsUpdateTime === undefined)
+					wsUpdateTime = new Date();
+				if(new Date().getTime() - wsUpdateTime.getTime() > 10)
 				{
-					if(!gameServers[d.gameName])
-					{
-						break;
-					}
-
-					if(!gameServers[d.gameName].players)
-						break;
-
-					if(gameServers[d.gameName].players[d.id])
-						gameServers[d.gameName].players[d.id] = d.player;
-
-
-
-					if(wsUpdateTime === undefined)
-						wsUpdateTime = new Date();
-					if(new Date().getTime() - wsUpdateTime.getTime() > 50)
-					{
-						var toUpdate = getAllClientsFromGame(d.gameName);
-						resA(toUpdate, "update", gameServers[d.gameName].players, "success");
-						wsUpdateTime = new Date();
-					}
+					var toUpdate = getAllClientsFromGame(d.gameName);
+					resA(toUpdate, "update", gameServers[d.gameName].players, "success");
+					wsUpdateTime = new Date();
 				}
 				break;
 
@@ -174,6 +182,28 @@ wsServer.on('request', function(r)
 	});
 });
 
+function writeB64File(d)
+{
+	var png = d.substr(22);
+
+	fs.writeFile("./files/"+new Date+".png", png, function(err)
+	{
+		if(err)
+		{
+			return console.log(err);
+		}
+	});
+}
+
+function myAtob(d)
+{
+	return new Buffer(d, 'base64').toString('binary');
+}
+
+function myBtoa(d)
+{
+	return new Buffer(d).toString('base64');
+}
 
 function removeOutTimedClients(clients)
 {

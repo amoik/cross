@@ -14,7 +14,7 @@ var vertexShader;
 var fragmentShaderTex;
 var vertexShaderTex;
 
-function canvDraw(game)
+function canvDraw(myPic)
 {
 	frames = 0;
 	time = undefined;
@@ -26,14 +26,14 @@ function canvDraw(game)
 	$("#"+CANV_ID).show();
 	var can = document.getElementById(CANV_ID);
 
-	var global = {md:false, x: 0,player:{x:0,y:0,s:1, a:0},ang:angular.element(document.getElementById('mpGame')).controller(),npcGrabbed:false,keyState:{}};
+	var global = {onAir:false,md:false, x: 0,player:{x:0,y:0,s:1, a:0},ang:angular.element(document.getElementById('mpGame')).controller(),npcGrabbed:false,keyState:{}};
 	global.ang.setRunning(true);
 
-	addListeners(can, global, game);
+	addListeners(can, global);
 
 	if(!initGL(can, global))
 	{
-		alrt("Dieser Browser beherrscht leider kein WebGL :(");
+		alrt("Dieser Browser beherrscht leider kein WebGL :(<br>Lade dir einen <a href='https://www.mozilla.org/de/firefox/new/' target='_blank'>richtigen</a> herunter");
 		return false;
 	}
 
@@ -42,14 +42,14 @@ function canvDraw(game)
 	canvResize();
 
 
-	recursiveTextureLoad(can, game, global, [
-		{n:"ressources/figur.png"},]
-		,0);
+	global.ang.setOnePlayerPicture(myId, myPic);
+
+	canvEndless(can, global);
 	return true;
 }
 
 
-function calcFrames(global, game)
+function calcFrames(global)
 {
 	if(time === undefined)
 		time = new Date();
@@ -66,73 +66,144 @@ function calcFrames(global, game)
 		frames ++;
 }
 
-
-
-function viewWallCollision(game, global)
+function canvEndless(can, global)
 {
-	//viewmatrix
-	var maxL = WEBGL_X * ((game.backgrounds.length-1)*2);
-	var minL = 0;
+	calcFrames(global);
 
-	if(global.x > minL)
-		global.x = minL;
-	if(global.x < -maxL)
-		global.x = -maxL;
-}
-
-function npcWallCollision(npc, global)
-{
-	//TOP
-	if(npc.y > WEBGL_Y - npc.s)
-		npc.y = WEBGL_Y - npc.s;
-	//BOTTOM
-	else if(npc.y < npc.s - WEBGL_Y)
-		npc.y = npc.s - WEBGL_Y;
-
-	//LEFT
-	if(npc.x + global.x < npc.s - WEBGL_X)
-		npc.x = npc.s- WEBGL_X - global.x;
-	//RIGHT
-	else if(npc.x + global.x > WEBGL_X - npc.s)
-		npc.x = WEBGL_X - npc.s - global.x;
-}
-
-function canvEndless(can ,game, global, tex)
-{
-	calcFrames(global, game);
-
-	calcInput(global, game);
-	drawScene(game, global, tex);
+	calcInput(global);
+	calcPhysics(global);
+	drawScene(global);
 
 	requestAnimFrame(function()
 	{
 		if(global.ang.getRunning())
 		{
-			global.ang.setGame(game);
-			canvEndless(can ,game, global, tex);
+			canvEndless(can, global);
 		}
 		else
 			cleanUp()
 	});
 }
 
-function calcInput(global, game)
+function calcPhysics(global)
+{
+	//speed reduction
+	if(!global.onAir && global.ang.getGame().players)
+	{
+		//set to 0 if low enough
+		if(global.ang.getGame().players[myId].xs < 0.01 && global.ang.getGame().players[myId].xs > -0.01)
+			global.ang.getGame().players[myId].xs = 0;
+		else if(global.ang.getGame().players[myId].xs < -0.01)
+			global.ang.getGame().players[myId].xs += 0.05;
+		else if(global.ang.getGame().players[myId].xs > 0.01)
+			global.ang.getGame().players[myId].xs -= 0.05;
+
+		//lock on max/min
+		if(global.ang.getGame().players[myId].xs > 0.5)
+			global.ang.getGame().players[myId].xs = 0.5;
+
+		if(global.ang.getGame().players[myId].xs < -0.5)
+			global.ang.getGame().players[myId].xs = -0.5;
+	}
+
+	//add speed
+	global.ang.getGame().players[myId].y += global.ang.getGame().players[myId].ys;
+	global.ang.getGame().players[myId].x += global.ang.getGame().players[myId].xs;
+
+	//left wall collision
+	if(global.ang.getGame().players[myId].x - global.ang.getGame().players[myId].s < -WEBGL_X)
+	{
+		global.ang.getGame().players[myId].x = global.ang.getGame().players[myId].s - WEBGL_X;
+		global.ang.getGame().players[myId].xs = -global.ang.getGame().players[myId].xs;
+	}
+
+	//right wall collision
+	if(global.ang.getGame().players[myId].x + global.ang.getGame().players[myId].s > WEBGL_X)
+	{
+		global.ang.getGame().players[myId].x = -global.ang.getGame().players[myId].s + WEBGL_X;
+		global.ang.getGame().players[myId].xs = -global.ang.getGame().players[myId].xs;
+	}
+
+
+	//floor collision
+	if(global.ang.getGame().players[myId].y - global.ang.getGame().players[myId].s < -WEBGL_Y)
+	{
+		global.onAir = false;
+		global.ang.getGame().players[myId].y = -WEBGL_Y + global.ang.getGame().players[myId].s;
+	}
+	//gravity
+	else
+	{
+		global.onAir = true;
+		global.ang.getGame().players[myId].ys -= 0.1;
+	}
+
+	//collision with other players
+	for(var i in global.ang.getGame().players)
+	{
+		if(i != myId)
+		{
+			if(parseInt(i) != myId)
+			{
+				if(coll_circle_circle(global.ang.getGame().players[myId].x, global.ang.getGame().players[myId].y, global.ang.getGame().players[myId].s, global.ang.getGame().players[i].x, global.ang.getGame().players[i].y, global.ang.getGame().players[i].s))
+				{
+					if(global.ang.getGame().players[myId].x < global.ang.getGame().players[i].x)
+					{
+						vibrate();
+						global.ang.getGame().players[myId].x = global.ang.getGame().players[i].x - global.ang.getGame().players[myId].s - global.ang.getGame().players[i].s;
+					}
+					else
+					{
+						vibrate();
+						global.ang.getGame().players[myId].x = global.ang.getGame().players[i].x + global.ang.getGame().players[myId].s + global.ang.getGame().players[i].s;
+					}
+				}
+			}
+		}
+	}
+}
+
+function vibrate()
+{
+	if ("vibrate" in navigator)
+	{
+		navigator.vibrate = navigator.vibrate || navigator.webkitVibrate || navigator.mozVibrate || navigator.msVibrate;
+		navigator.vibrate(100);
+	}
+}
+
+function move(global, amount)
+{
+	if(!global.onAir)
+	{
+		global.ang.getGame().players[myId].xs += amount;
+	}
+}
+function jump(global)
+{
+	if(!global.onAir)
+		global.ang.getGame().players[myId].ys = 1;
+}
+
+function calcInput(global)
 {
 	if(global.keyState[68])
-	{
-		game.players[myId].x += 0.1;
+	{//d
+		move(global, 0.1);
 	}
 	if(global.keyState[65])
-	{
-		game.players[myId].x -= 0.1;
+	{//a
+		move(global, -0.1);
 	}
 	if(global.keyState[87])
-	{
-		game.players[myId].y += 0.1;
+	{//w
 	}
 	if(global.keyState[83])
-	{
-		game.players[myId].y -= 0.1;
+	{//s
+	}
+	if(global.keyState[32])
+	{//space
+		jump(global);
 	}
 }
 
@@ -142,14 +213,10 @@ function canvResize()
 	{
 		var jCan = $("#"+CANV_ID);
 		jCan.height(jCan.width() / WEBGL_X * WEBGL_Y);
+		gl.clearColor(0.9, 0.9, 0.9, 1.0);
+		mat4.ortho(-WEBGL_X,WEBGL_X,-WEBGL_Y,WEBGL_Y,1,0.0,pMatrix);
+		mat4.identity(mvMatrix);
 	}
-
-	gl.clearColor(0.9, 0.9, 0.9, 1.0);
-
-
-	mat4.ortho(-WEBGL_X,WEBGL_X,-WEBGL_Y,WEBGL_Y,1,0.0,pMatrix);
-	mat4.identity(mvMatrix);
-
 }
 
 function initGL(can, global)
@@ -225,61 +292,68 @@ var mvMatrix = mat4.create();
 var pMatrix = mat4.create();
 
 
-function drawScene(game, global, tex)
+function drawScene(global, tex)
 {
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 	for(var i in global.ang.getGame().players)
 	{
 		if(global.ang.getGame().players[i])
+		{
+			if(!global.ang.getPlayerPictures()[i])
+			{
+				rebuildTexture(global, i);
+			}
+
 			if(global.ang.getGame().players[i].id != myId)
 			{
-				glDrawCircleTex(global.ang.getGame().players[i].x, global.ang.getGame().players[i].y, global.ang.getGame().players[i].s, global.ang.getGame().players[i].a, tex[0].t);
+				if(global.ang.getPlayerPictures()[i])
+				{
+					glDrawCircleTex(global.ang.getGame().players[i].x, global.ang.getGame().players[i].y, global.ang.getGame().players[i].s, global.ang.getGame().players[i].a, global.ang.getPlayerPictures()[i].t);// tex[0].t);
+				}
 			}
+		}
 	}
 }
 
 
 
-function testAllCollisions(npc, global,game, npc, withplayer)
-{
-	for(var i = 0; i < game.enemies.length; i++)
-	{
-		if(coll_circle_circle(npc.x, npc.y, npc.s, game.enemies[i].x,  game.enemies[i].y,  game.enemies[i].s))
-			return true;
-	}
-	for(var i = 0; i < game.goodies.length; i++)
-	{
-		if(coll_circle_circle(npc.x, npc.y, npc.s, game.goodies[i].x,  game.goodies[i].y,  game.goodies[i].s))
-			return true;
-	}
-	if(withplayer)
-		if(coll_circle_circle(npc.x, npc.y, npc.s, global.player.x,  global.player.y,  global.player.s))
-			return true;
-}
-
-function unchooseAllNpcs(game)
-{
-	for(var i = 0; i < game.enemies.length; i++)
-	{
-		game.enemies[i].choosen = false;
-	}
-	for(var i = 0; i < game.goodies.length; i++)
-	{
-		game.goodies[i].choosen = false;
-	}
-}
-
-function addListeners(can, global, game)
+function addListeners(can, global)
 {
 	window.addEventListener('keydown',function(e){global.keyState[e.keyCode || e.which] = true;},true);
 	window.addEventListener('keyup',function(e){global.keyState[e.keyCode || e.which] = false;},true);
-
-
-	can.addEventListener("contextmenu", function(e){ mouseClickR(e, global); }.bind(this));
+	window.addEventListener('touchstart',function(e){jump(global);},true);
+	window.addEventListener('devicemotion',function(e){accel(global, e);},true);
 }
 
+function accel(global, e)
+{
+	e.preventDefault();
+	var ori = screen.mozOrientation || screen.orientation || screen.msOrientation;
 
+	if(typeof ori == "string")
+	{
+		if (ori === "landscape-primary")
+			move(global, Math.round(e.accelerationIncludingGravity.y*10) / 100);
+		else if (ori === "landscape-secondary")
+			move(global, -Math.round(e.accelerationIncludingGravity.y*10) / 100);
+		else if (ori === "portrait-secondary")
+			move(global, Math.round(e.accelerationIncludingGravity.x*10) / 100);
+		else if (ori === "portrait-primary")
+			move(global, -Math.round(e.accelerationIncludingGravity.x*10) / 100);
+	}
+	else
+	{
+		if(window.orientation == 90)
+			move(global, Math.round(e.accelerationIncludingGravity.y*10) / 100);
+		else if(window.orientation == -90)
+			move(global, -Math.round(e.accelerationIncludingGravity.y*10) / 100);
+		else if(window.orientation == 0)
+			move(global, -Math.round(e.accelerationIncludingGravity.x*10) / 100);
+		else if(window.orientation == 180)
+			move(global, Math.round(e.accelerationIncludingGravity.x*10) / 100);
+	}
+}
 
 /*
  * calculates canvas coordinates from an mouse event
@@ -319,8 +393,26 @@ function coll_circle_circle(x1, y1, r1, x2, y2, r2)
 		return 0;
 }
 
+function rebuildTexture(global, i)
+{
+	var p = global.ang.getPlayerPictures();
+	if(!p[i])
+		p[i]={};
 
+	p[i].t = gl.createTexture();
+	p[i].t.image = new Image();
 
+	//if there is a custom picture
+	if(p[i].png)
+		p[i].t.image.src = p[i].png;
+	else	//if not
+		p[i].t.image.src = global.ang.getPicture();
+
+	p[i].t.image.onload = function ()
+	{
+		handleLoadedTexture(p[i].t);
+	}
+}
 
 
 
@@ -441,25 +533,7 @@ function handleLoadedTexture(texture)
 	gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
-function recursiveTextureLoad(can ,game, global, tex, num)
-{
-	tex[num].t = gl.createTexture();
-	tex[num].t.image = new Image();
-	tex[num].t.image.src = tex[num].n;
 
-	tex[num].t.image.onload = function ()
-	{
-		handleLoadedTexture(tex[num].t);
-
-		if(num < tex.length-1)
-			recursiveTextureLoad(can ,game, global, tex, num+1);
-		else
-		{
-			modal.hidePleaseWait();
-			canvEndless(can ,game, global, tex);
-		}
-	}
-}
 
 
 

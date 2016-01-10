@@ -1,3 +1,30 @@
+var modal;
+var modalCount = 0;
+
+modal = modal || (function ()
+{
+	var pleaseWaitDiv = $('<div class="modal" id="pleaseWaitDialog" data-backdrop="static" data-keyboard="false"><div class="modal-body"></div></div>');
+	return{
+		showPleaseWait: function()
+		{
+			modalCount ++;
+			pleaseWaitDiv.modal();
+		},
+		hidePleaseWait: function ()
+		{
+			modalCount --;
+
+			if(modalCount <= 0)
+			{
+				modalCount = 0;
+				pleaseWaitDiv.modal('hide');
+			}
+		},
+	};
+})();
+
+var ALRT_IS_SET = false;
+
 Object.size = function(obj)
 {
 	var size = 0, key;
@@ -55,13 +82,14 @@ function _GET()
 
 function removeBox()
 {
+	ALRT_IS_SET = false;
 	$('#alrt_box').remove();
 	modal.hidePleaseWait();
 }
 
 $( window ).resize(function()
 {
-  setBoxPos();
+	setBoxPos();
 });
 
 function setBoxPos()
@@ -81,7 +109,10 @@ function setBoxPos()
 
 function alrt(msg, style)
 {
-	modal.showPleaseWait();
+	if(!ALRT_IS_SET)
+		modal.showPleaseWait();
+	ALRT_IS_SET = true;
+
 	$("body").append("<div id='alrt_box'></div>")
 	var bx = $('#alrt_box');
 

@@ -6,19 +6,29 @@ var myId;
 
 function wsConnect(server, callbackO, callbackC)
 {
-	wsSocket = new WebSocket(server, 'echo-protocol');
-	wsSocket.onclose = function()
+	try
 	{
-		callbackC();
+		wsSocket = new WebSocket(server, 'echo-protocol');
+		wsSocket.onclose = function()
+		{
+			callbackC();
+			setConfig("lobby","");
+		}
+		wsSocket.error = function()
+		{
+			alrt("Es konnte keine Verbindung hergestellt werden<br><span class='badge'>geh ham!<span>");
+			setConfig("lobby","");
+		}
+		wsSocket.onopen = function()
+		{
+			callbackO();
+			wsEndless();
+		}
 	}
-	wsSocket.error = function()
+	catch(e)
 	{
-		alrt("Es konnte keine Verbindung hergestellt werden\ngeh ham!");
-	}
-	wsSocket.onopen = function()
-	{
-		callbackO();
-		wsEndless();
+		alrt("Es konnte keine Verbindung hergestellt werden<br><span class='badge'>geh ham!<span>");
+		setConfig("lobby","");
 	}
 }
 
@@ -77,7 +87,7 @@ function wsEndless()
 
 	if(wsUpdateTime === undefined)
 		wsUpdateTime = new Date();
-	if(new Date().getTime() - wsUpdateTime.getTime() > 50)
+	if(new Date().getTime() - wsUpdateTime.getTime() > 10)
 	{
 		var game = angular.element(document.getElementById('mpGame')).controller().getGame();
 
