@@ -12,12 +12,11 @@ function wsConnect(server, callbackO, callbackC)
 		wsSocket.onclose = function()
 		{
 			callbackC();
-			setConfig("lobby","");
 		}
 		wsSocket.error = function()
 		{
+		angular.element(document.getElementById('mpGame')).controller().setInterface("welcome");
 			alrt("Es konnte keine Verbindung hergestellt werden<br><span class='badge'>geh ham!<span>");
-			setConfig("lobby","");
 		}
 		wsSocket.onopen = function()
 		{
@@ -27,13 +26,17 @@ function wsConnect(server, callbackO, callbackC)
 	}
 	catch(e)
 	{
+		angular.element(document.getElementById('mpGame')).controller().setInterface("welcome");
 		alrt("Es konnte keine Verbindung hergestellt werden<br><span class='badge'>geh ham!<span>");
-		setConfig("lobby","");
 	}
 }
 
 function wsSend(msg)
 {
+  if(myId === undefined)
+  {
+    alert("Du hast noch keine ID! " + myId + msg.toSource());
+  }
 	msg.id = myId;
 	wsSocket.send(JSON.stringify(msg));
 }

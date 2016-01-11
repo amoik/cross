@@ -18,17 +18,14 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 
 	angular.element(document).ready(function ()
 	{
+		$("#userPhotoVideo").hide();
 		modal.hidePleaseWait();
 		var savedSocket = getConfig("lobby");
 		if(savedSocket && savedSocket != "")
 		{
 			mpg.WS_SERVER = savedSocket;
-			mpg.login();
 		}
-		else
-		{
-			mpg.setInterface("welcome");
-		}
+		mpg.login();
 	});
 
 	mpg.newGame = {name:"",maxCount:10};
@@ -42,9 +39,10 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 			function()
 			{
 				setConfig("lobby",mpg.WS_SERVER);
-				wsSend({request:"readLobby"});
 				mpg.addWsListener();
 				mpg.setInterface("lobby");
+				
+				
 			},
 			function()
 			{
@@ -94,6 +92,7 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 
 	mpg.leaveGame = function()
 	{
+	  mpg.running = false;
 		wsSend({request:"leaveGame",game:mpg.game});
 		mpg.game = {};
 	}
@@ -106,6 +105,14 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 			{
 				case "login":
 					myId = data.id;
+				  wsSend({request:"readLobby"});
+
+					var uPic = getConfig("userPicture");
+					if(uPic)
+					{
+				    wsSend({request:"userPicture",picture:uPic});
+				    mpg.savePicture(uPic);
+			    }
 					break;
 
 
@@ -196,29 +203,45 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 			img.src = p;
 		}
 	}
+	
 
 
-
-	mpg.savePic = function()
+	mpg.mediaStream;
+	mpg.savePictureFromVideoTag = function()
 	{
 		var can = document.getElementById('userPhotoCanvas');
 		var context = can.getContext('2d');
 		can.width = 64;
 		can.height = 64;
 		context.drawImage(document.getElementById('userPhotoVideo'), 0, 0, 64, 64);
-
 		var data = can.toDataURL('image/png');
+		mpg.mediaStream.stop();
+	  
+	  mpg.savePicture(data);
+	}
+
+	mpg.savePicture = function(data)
+	{
+		var can = document.getElementById('userPhotoCanvas');
+		var context = can.getContext('2d');
+		can.width = 64;
+		can.height = 64;
+
+    drawing = new Image();
+    drawing.src = data; // can also be a remote URL e.g. http://
+    drawing.onload = function()
+    {
+      context.drawImage(drawing,0,0);
+    };
 
 		$("#userPhotoVideo").hide();
 		$("#userPhotoCanvas").show();
-		mpg.mediaStream.stop();
 		wsSend({request:"userPicture",picture:data});
+		setConfig("userPicture",data);
 		mpg.myPicture = data;
 	}
 
-	mpg.mediaStream;
-
-	mpg.changePic = function()
+	mpg.changePicture = function()
 	{
 		$("#userPhotoVideo").show();
 		$("#userPhotoCanvas").hide();
@@ -227,7 +250,7 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 
 		if(!navigator.getMedia)
 		{
-			alrt("Dieser Browser beherrscht leider keine mediaDevices :(<br>Lade dir einen <a href='https://www.mozilla.org/de/firefox/new/' target='_blank'>richtigen</a> herunter");
+		  alrt("Dieses Ding beherrscht leider keine mediaDevices :(<br>Lade dir doch einen <a href='https://www.mozilla.org/de/firefox/new/' target='_blank'>Browser</a>,<br>oder noch besser gleich ein richtiges <a href='https://getfedora.org/de_CH/workstation/download/' target='_blank'>Betriebssystem</a> herunter");
 			$("#userPhotoVideo").hide();
 			$("#userPhotoCanvas").show();
 			return;
@@ -249,7 +272,9 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 		},
 		function(err)
 		{
-			alrt("Dieser Browser beherrscht leider keine mediaDevices :(<br>Lade dir einen <a href='https://www.mozilla.org/de/firefox/new/' target='_blank'>richtigen</a> herunter");
+		  alrt("Dieses Ding beherrscht leider keine mediaDevices :(<br>Lade dir doch einen <a href='https://www.mozilla.org/de/firefox/new/' target='_blank'>Browser</a>,<br>oder noch besser gleich ein richtiges <a href='https://getfedora.org/de_CH/workstation/download/' target='_blank'>Betriebssystem</a> herunter");
+			$("#userPhotoVideo").hide();
+			$("#userPhotoCanvas").show();
 		});
 	}
 

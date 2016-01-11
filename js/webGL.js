@@ -8,7 +8,7 @@ var canvWallH = 0;
 const CANV_ID = 'canv';
 const WEBGL_X = 16;
 const WEBGL_Y = 6;
-const GL_RESOLUTION = 800;
+const GL_RESOLUTION = 1200;
 var fragmentShader;
 var vertexShader;
 var fragmentShaderTex;
@@ -33,7 +33,7 @@ function canvDraw(myPic)
 
 	if(!initGL(can, global))
 	{
-		alrt("Dieser Browser beherrscht leider kein WebGL :(<br>Lade dir einen <a href='https://www.mozilla.org/de/firefox/new/' target='_blank'>richtigen</a> herunter");
+		  alrt("Dieses Ding beherrscht leider kein WebGL :(<br>Lade dir doch einen <a href='https://www.mozilla.org/de/firefox/new/' target='_blank'>Browser</a>,<br>oder noch besser gleich ein richtiges <a href='https://getfedora.org/de_CH/workstation/download/' target='_blank'>Betriebssystem</a> herunter");
 		return false;
 	}
 
@@ -365,7 +365,7 @@ function getCanvasCoord(e)
 	var can = document.getElementById(CANV_ID);
 	var rect = can.getBoundingClientRect();
 	if(!rect)
-		die("BoundingClientRect is not supported by this browser!");
+		  alrt("Dieses Ding beherrscht leider kein BoundingClientRect :(<br>Lade dir doch einen <a href='https://www.mozilla.org/de/firefox/new/' target='_blank'>Browser</a>,<br>oder noch besser gleich ein richtiges <a href='https://getfedora.org/de_CH/workstation/download/' target='_blank'>Betriebssystem</a> herunter");
 
 	var x = e.clientX-rect.left-(jCan.width()/2);
 	var y = e.clientY-rect.top-(jCan.height()/2);

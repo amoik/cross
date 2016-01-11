@@ -52,7 +52,7 @@ wsServer.on('request', function(r)
 		game: false,
 		lastSeen: new Date()
 	};
-	console.log("new Connection: " + connection.remoteAddress);
+	console.log(nextId + ": new Connection: " + connection.remoteAddress);
 	res(clients[nextId].conn, "login", {id:nextId}, "success");
 
 	nextId ++;
@@ -70,110 +70,119 @@ wsServer.on('request', function(r)
 		{
 			d={request:"unknown"};
 		}
-
-		switch(d.request)
+		
+		if(d.id == undefined)
 		{
-			case "readLobby":
-				resA(clients, d.request, gameServers, "success");
-				break;
-
-
-			case "createGame":
-				d.game.count = 0;
-				d.game.players = {};
-				gameServers[d.game.name] = d.game;
-				nextGId ++;
-				res(connection, d.request, d.game, "success");
-				resA(clients, "readLobby", gameServers, "success");
-				break;
-
-			case "userPicture":
-				clients[d.id].picture = d.picture;
-				writeB64File(d.picture);
-				break;
-
-			case "joinGame":
-				console.log(d.id + " joins " + d.gameName);
-				if(!gameServers[d.gameName])
-				{
-					res(connection, d.request, "game not found!", "fail");
-					break;
-				}
-				if(gameServers[d.gameName].count >= gameServers[d.gameName].maxCount)
-				{
-					res(connection, d.request, "Dieses Spiel ist voll!", "fail");
-					break;
-				}
-				gameServers[d.gameName].count ++;
-				gameServers[d.gameName].players[d.id] = {x:0,y:0,xs:0,ys:0,s:1,a:0};
-				clients[d.id].game = gameServers[d.gameName];
-				res(connection, "joinGame",gameServers[d.gameName], "success");
-
-				var toUpdate = getAllClientsFromGame(d.gameName);
-				resA(toUpdate, "userPicture", {picture:clients[d.id].picture,id:d.id}, "success");
-
-				for(var i in toUpdate)
-					res(connection, "userPicture",{picture:toUpdate[i].picture,id:i}, "success");
-
-				resA(clients, "readLobby", gameServers, "success");
-
-				break;
-
-
-			case "leaveGame":
-				console.log(d.id + " leaves " + d.game.name);
-				if(!gameServers[d.game.name])
-				{
-					break;
-				}
-				gameServers[d.game.name].count --;
-
-				delete gameServers[d.game.name].players[d.id];
-
-				checkAndDeleteGame(d.game.name);
-
-
-				res(connection, d.request, "", "success");
-				break;
-
-
-			case "tick":
-				if(clients[d.id])
-					clients[d.id].lastSeen = new Date();
-				removeOutTimedClients(clients);
-				break;
-
-
-			case "update":
-				if(!d.gameName || !gameServers[d.gameName] || !gameServers[d.gameName].players)
+			console.log("ungültige ID erhalten: wird ein call vor dem login abgesetzt?");
+			console.log(d);
+		}
+		else
+		{
+			switch(d.request)
+			{
+				case "readLobby":
+					resA(clients, d.request, gameServers, "success");
 					break;
 
-				if(gameServers[d.gameName].players[d.id])
-					gameServers[d.gameName].players[d.id] = d.player;
 
-				if(wsUpdateTime === undefined)
-					wsUpdateTime = new Date();
-				if(new Date().getTime() - wsUpdateTime.getTime() > 10)
-				{
+				case "createGame":
+					d.game.count = 0;
+					d.game.players = {};
+					gameServers[d.game.name] = d.game;
+					nextGId ++;
+					res(connection, d.request, d.game, "success");
+					resA(clients, "readLobby", gameServers, "success");
+					break;
+
+				case "userPicture":
+					console.log(d.id + ": sent a new Picture");
+					clients[d.id].picture = d.picture;
+					writeB64File(d.picture);
+					break;
+
+				case "joinGame":
+					console.log(d.id + " joins " + d.gameName);
+					if(!gameServers[d.gameName])
+					{
+						res(connection, d.request, "game not found!", "fail");
+						break;
+					}
+					if(gameServers[d.gameName].count >= gameServers[d.gameName].maxCount)
+					{
+						res(connection, d.request, "Dieses Spiel ist voll!", "fail");
+						break;
+					}
+					gameServers[d.gameName].count ++;
+					gameServers[d.gameName].players[d.id] = {x:0,y:0,xs:0,ys:0,s:0.5,a:0};
+					clients[d.id].game = gameServers[d.gameName];
+					res(connection, "joinGame",gameServers[d.gameName], "success");
+
 					var toUpdate = getAllClientsFromGame(d.gameName);
-					resA(toUpdate, "update", gameServers[d.gameName].players, "success");
-					wsUpdateTime = new Date();
-				}
-				break;
+					resA(toUpdate, "userPicture", {picture:clients[d.id].picture,id:d.id}, "success");
+
+					for(var i in toUpdate)
+						res(connection, "userPicture",{picture:toUpdate[i].picture,id:i}, "success");
+
+					resA(clients, "readLobby", gameServers, "success");
+
+					break;
 
 
-			case "msg":
-				for(var i in clients)
-				{
-					clients[i].conn.sendUTF(msgString);
-				}
-				break;
+				case "leaveGame":
+					console.log(d.id + " leaves " + d.game.name);
+					if(!gameServers[d.game.name])
+					{
+						break;
+					}
+					gameServers[d.game.name].count --;
+
+					delete gameServers[d.game.name].players[d.id];
+
+					checkAndDeleteGame(d.game.name);
 
 
-			case "unknown":
-			default:
-				console.log("unknown request: " + JSON.stringify(d));
-				res(connection, d.request, d.request, "unknown");
+					res(connection, d.request, "", "success");
+					break;
+
+
+				case "tick":
+					if(clients[d.id])
+						clients[d.id].lastSeen = new Date();
+					removeOutTimedClients(clients);
+					break;
+
+
+				case "update":
+					if(!d.gameName || !gameServers[d.gameName] || !gameServers[d.gameName].players)
+						break;
+
+					if(gameServers[d.gameName].players[d.id])
+						gameServers[d.gameName].players[d.id] = d.player;
+
+					if(wsUpdateTime === undefined)
+						wsUpdateTime = new Date();
+					if(new Date().getTime() - wsUpdateTime.getTime() > 10)
+					{
+						var toUpdate = getAllClientsFromGame(d.gameName);
+						resA(toUpdate, "update", gameServers[d.gameName].players, "success");
+						wsUpdateTime = new Date();
+					}
+					break;
+
+
+				case "msg":
+					for(var i in clients)
+					{
+						clients[i].conn.sendUTF(msgString);
+					}
+					break;
+
+
+				case "unknown":
+				default:
+					console.log("unknown request: " + JSON.stringify(d));
+					res(connection, d.request, d.request, "unknown");
+			}
 		}
 	});
 
@@ -186,23 +195,13 @@ function writeB64File(d)
 {
 	var png = d.substr(22);
 
-	fs.writeFile("./files/"+new Date+".png", png, function(err)
+	fs.writeFile("./files/"+new Date+".png", new Buffer(png, 'base64'), function(err)
 	{
 		if(err)
 		{
 			return console.log(err);
 		}
 	});
-}
-
-function myAtob(d)
-{
-	return new Buffer(d, 'base64').toString('binary');
-}
-
-function myBtoa(d)
-{
-	return new Buffer(d).toString('base64');
 }
 
 function removeOutTimedClients(clients)

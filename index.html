@@ -57,8 +57,8 @@
 
 					<button ng-click="mpg.logout()" type="button" class="btn btn-warning" aria-label="Left Align">Logout</button>
 
-					<video ng-click="mpg.savePic()" id="userPhotoVideo" style="width:64px;height:64px;float:right;">Der Video-Tag wird von diesem Browser nicht unterstützt!</video>
-					<canvas ng-click="mpg.changePic()" id="userPhotoCanvas" width="64px" height="64px" style="float:right;"></canvas>
+					<video ng-click="mpg.savePictureFromVideoTag()" id="userPhotoVideo" style="width:64px;height:64px;float:right;">Der Video-Tag wird von diesem Browser nicht unterstützt!</video>
+					<canvas ng-click="mpg.changePicture()" id="userPhotoCanvas" width="64px" height="64px" style="float:right;"></canvas>
 
 					<table ng-if="!mpg.getGamesEmpty()" style="margin:10px;width:100%;">
 						<th>Name</th>
@@ -123,7 +123,7 @@
 					</div>
 
 
-						<div><span id="canvFrames" style="color:orange;display:hidden;"></span></div>
+						<div><span id="canvFrames" style="color:orange;display:none;"></span></div>
 					</div>
 			</div>
 		</div>
