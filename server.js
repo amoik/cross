@@ -97,7 +97,8 @@ wsServer.on('request', function(r)
 				case "userPicture":
 					console.log(d.id + ": sent a new Picture");
 					clients[d.id].picture = d.picture;
-					writeB64File(d.picture);
+					if(d.save)
+					  writeB64File(d.picture);
 					break;
 
 				case "joinGame":

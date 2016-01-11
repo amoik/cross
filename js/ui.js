@@ -110,7 +110,6 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 					var uPic = getConfig("userPicture");
 					if(uPic)
 					{
-				    wsSend({request:"userPicture",picture:uPic});
 				    mpg.savePicture(uPic);
 			    }
 					break;
@@ -218,6 +217,7 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 		mpg.mediaStream.stop();
 	  
 	  mpg.savePicture(data);
+		wsSend({request:"userPicture",picture:data,save:true});
 	}
 
 	mpg.savePicture = function(data)
@@ -236,7 +236,7 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 
 		$("#userPhotoVideo").hide();
 		$("#userPhotoCanvas").show();
-		wsSend({request:"userPicture",picture:data});
+		wsSend({request:"userPicture",picture:data,save:false});
 		setConfig("userPicture",data);
 		mpg.myPicture = data;
 	}
