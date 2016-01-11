@@ -41,12 +41,6 @@ var mpGame = angular.module('mpGame', []).controller('mpGameCtr', function($scop
 				setConfig("lobby",mpg.WS_SERVER);
 				mpg.addWsListener();
 				mpg.setInterface("lobby");
-				
-				
-			},
-			function()
-			{
-				mpg.setInterface("welcome");
 			}
 		);
 	}

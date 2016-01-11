@@ -4,19 +4,20 @@ var myId;
 
 
 
-function wsConnect(server, callbackO, callbackC)
+function wsConnect(server, callbackO)
 {
 	try
 	{
 		wsSocket = new WebSocket(server, 'echo-protocol');
 		wsSocket.onclose = function()
 		{
-			callbackC();
+		  angular.element(document.getElementById('mpGame')).controller().setInterface("welcome");
+			alrt("Die Verbindung zum Server wurde unterbrochen!<br><span class='badge'>geh ham!<span>");
 		}
 		wsSocket.error = function()
 		{
-		angular.element(document.getElementById('mpGame')).controller().setInterface("welcome");
-			alrt("Es konnte keine Verbindung hergestellt werden<br><span class='badge'>geh ham!<span>");
+		  angular.element(document.getElementById('mpGame')).controller().setInterface("welcome");
+			alrt("Die Verbindung zum Server wurde unterbrochen!<br><span class='badge'>geh ham!<span>");
 		}
 		wsSocket.onopen = function()
 		{
